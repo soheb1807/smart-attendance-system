@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Camera Test</h2>
+    <video id="video" width="300" height="300" autoplay style="background:black"></video>
+    <br/>
+    <button onclick="startCamera()">Start Camera</button>
+    <p id="error" style="color:red; font-weight:bold"></p>
+
+    <script>
+        async function startCamera() {
+            const errorText = document.getElementById("error");
+            const video = document.getElementById("video");
+            errorText.innerText = "Requesting camera...";
+            
+            try {
+                // Request the back camera specifically
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                video.srcObject = stream;
+                errorText.innerText = "Success! Camera is working.";
+                errorText.style.color = "green";
+            } catch (err) {
+                // THIS IS THE IMPORTANT PART
+                errorText.innerText = "ERROR NAME: " + err.name + "\nMESSAGE: " + err.message;
+            }
+        }
+    </script>
+</body>
+</html>
