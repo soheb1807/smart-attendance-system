@@ -1,18 +1,12 @@
 const nodemailer = require('nodemailer');
 
-// ⬇️ UPDATE THIS SECTION ⬇️
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',  // explicit host
-  port: 465,               // explicit port (Use 465 for SSL)
-  secure: true,            // true for 465, false for other ports
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Adding connection timeout settings can help debug if it still hangs
-  connectionTimeout: 10000, 
 });
-// ⬆️ END UPDATE ⬆️
 
 /**
  * Enhanced SendEmail Utility
@@ -28,14 +22,15 @@ exports.sendEmail = async (to, subject, text, html = null) => {
     from: `"College Attendance System" <${process.env.EMAIL_USER}>`,
     to,
     subject,
-    text, 
-    html: html || text.replace(/\n/g, '<br>'), 
+    text, // Fallback for old email clients
+    html: html || text.replace(/\n/g, '<br>'), // Use HTML if provided, else convert text newlines
   };
 
   try {
     await transporter.sendMail(mailOptions);
     console.log(`✅ Email successfully sent to: ${to}`);
   } catch (error) {
+    // Detailed error logging to help you troubleshoot Gmail limits or auth issues
     console.error(`❌ Mailer Error (${to}): ${error.message}`);
     
     if (error.message.includes('EAUTH')) {

@@ -14,7 +14,7 @@ exports.registerUser = async (req, res) => {
   const { 
     name, email, password, role, 
     stream, rollNumber, deviceId, parentEmail, department, 
-    profileImage 
+    profileImage // <--- 1. Accept profileImage from frontend
   } = req.body;
 
   try {
@@ -45,7 +45,7 @@ exports.registerUser = async (req, res) => {
       _id: user._id,
       name: user.name,
       role: user.role,
-      profileImage: user.profileImage, 
+      profileImage: user.profileImage, // <--- Return image in response
       message: role === 'admin' ? 'Admin registered' : 'Registration successful. Please wait for approval.'
     });
   } catch (error) {
@@ -98,13 +98,12 @@ exports.loginUser = async (req, res) => {
         rollNumber: user.rollNumber,
         parentEmail: user.parentEmail,
         department: user.department,
-        profileImage: user.profileImage, 
+        profileImage: user.profileImage, // <--- 2. Send Profile Image on Login
         token: generateToken(user._id),
       });
 
     } else {
-      // FIX: Changed status 41 to 401 (Unauthorized)
-      res.status(401).json({ message: 'Invalid email or password' });
+      res.status(41).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -114,78 +113,44 @@ exports.loginUser = async (req, res) => {
 // @desc    Forgot Password
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
-  
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Generate Token
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 Minutes
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; 
     await user.save();
 
-    // Create Reset URL
-    // Ensure CLIENT_URL in .env does NOT have a trailing slash (e.g., https://myapp.com)
     const resetUrl = `${process.env.CLIENT_URL}/resetpassword/${resetToken}`;
+    const message = `Password Reset Request: \n\n ${resetUrl}`;
 
-    // 📧 Create Email Content
-    const subject = 'Password Reset Request';
-    
-    // Plain text version
-    const message = `You requested a password reset. Please go to this link to reset your password: \n\n ${resetUrl}`;
-    
-    // HTML Version (Clickable Link)
-    const htmlMessage = `
-      <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h2>Password Reset</h2>
-        <p>You have requested to reset your password.</p>
-        <p>Please click the button below to proceed:</p>
-        <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a>
-        <p style="margin-top: 20px;">Or copy this link:</p>
-        <p>${resetUrl}</p>
-        <p>If you did not request this, please ignore this email.</p>
-      </div>
-    `;
-
-    // Send using the updated sendEmail utility
-    await sendEmail(
-      user.email, 
-      subject, 
-      message,    // text version
-      htmlMessage // html version
-    );
-
+    await sendEmail(email, 'Password Reset Request', message);
     res.status(200).json({ message: 'Email sent' });
-
   } catch (error) {
-    // Rollback if email fails
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();
-    
-    console.error("Forgot Password Error:", error);
-    res.status(500).json({ message: 'Email could not be sent. Please try again later.' });
+    res.status(500).json({ message: 'Email error' });
   }
 };
 
 // @desc    Reset Password
 exports.resetPassword = async (req, res) => {
   const resetPasswordToken = crypto.createHash('sha256').update(req.params.resetToken).digest('hex');
-  
   const user = await User.findOne({
     resetPasswordToken,
     resetPasswordExpire: { $gt: Date.now() },
   });
 
-  if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+  if (!user) return res.status(400).json({ message: 'Invalid token' });
 
   user.password = req.body.password; 
   user.resetPasswordToken = undefined;
   user.resetPasswordExpire = undefined;
   await user.save();
 
-  res.status(201).json({ message: 'Password updated successfully' });
+  res.status(201).json({ message: 'Password updated' });
 };
 
 // @desc    Change Password
@@ -214,7 +179,7 @@ exports.updateUserProfile = async (req, res) => {
       user.name = req.body.name || user.name;
       user.email = req.body.email || user.email;
       
-      // Allow updating profile image
+      // 3. Allow updating profile image
       if (req.body.profileImage) {
         user.profileImage = req.body.profileImage;
       }
@@ -230,7 +195,7 @@ exports.updateUserProfile = async (req, res) => {
         rollNumber: updatedUser.rollNumber,
         parentEmail: updatedUser.parentEmail,
         department: updatedUser.department,
-        profileImage: updatedUser.profileImage, 
+        profileImage: updatedUser.profileImage, // <--- Return updated image
         token: req.headers.authorization.split(' ')[1] 
       });
     } else {
